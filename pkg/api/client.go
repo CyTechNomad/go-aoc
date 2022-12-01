@@ -54,7 +54,7 @@ func (c *Client) makeRequest(req *http.Request) (*http.Response, error) {
 
 // clinet needs to be able to get the data for the day and part
 func (c *Client) GetInputData() (*string, error) {
-	url := fmt.Sprintf(models.DayURL, c.Year-1, 5) + "/input"
+	url := fmt.Sprintf(models.DayURL, c.Year, c.Day) + "/input"
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("makeRequest: could not create request: %v", err)
