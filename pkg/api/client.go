@@ -23,7 +23,7 @@ type Client struct {
 func NewClient() *Client {
 	var client Client
 
-	date := time.Now()
+	date := time.Now().UTC().Add(time.Hour * -5)
 
 	if date.Month() == time.December {
 		client.Year = date.Year()
