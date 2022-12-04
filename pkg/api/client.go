@@ -4,45 +4,114 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/bilrik/go-aoc/pkg/models"
 )
 
-// Client for the API.
-// client needs user data and year, day, part
+var now = func(loc *time.Location) time.Time {
+	return time.Now().In(loc)
+}
+
 type Client struct {
-	Year       int
-	Day        int
-	User       models.User
+	Timezone   *time.Location
+	Year       func() int
+	Day        func() int
+	User       *models.User
 	HTTPClient *http.Client
 }
 
+type ClientOption func(*Client)
+
 // NewClient creates a new client.
-func NewClient() *Client {
-	var client Client
+func NewClient(opts ...ClientOption) *Client {
+	// create empty client
+	c := &Client{}
 
-	date := time.Now().UTC().Add(time.Hour * -5)
+	// applies default options
+	defaultOptions(c)
 
-	if date.Month() == time.December {
-		client.Year = date.Year()
-	} else {
-		client.Year = date.Year() - 1
+	// applies provided options
+	for _, opt := range opts {
+		opt(c)
 	}
 
-	client.Day = date.Day()
-	client.User = *models.NewUser()
-	client.HTTPClient = &http.Client{}
+	// if user is not provided then attempt to set new default user
+	// // this was moved out of defaultOptions so that defaultOptions
+	// // does not attempt to create user by default method if a user is provided
+	if c.User == nil {
+		WithUser(models.NewUser())(c)
+	}
 
-	return &client
+	return c
+}
+
+func defaultOptions(c *Client) {
+	// set default timezone to America/New_York using LoadLocation and check for error
+	loc, err := time.LoadLocation(models.AOCTimezone)
+	if err != nil {
+		panic(err)
+	}
+	c.Timezone = loc
+
+	c.Year = func() int {
+		// set yearfn to return currentyear but only if it is December else set to return previous year
+		date := now(c.Timezone)
+		if date.Month() == time.December {
+			return date.Year()
+		} else {
+			return date.Year() - 1
+		}
+	}
+
+	// set day
+	c.Day = func() int {
+		return now(c.Timezone).Day()
+	}
+
+	// create http client
+	c.HTTPClient = &http.Client{}
+}
+
+// withYear sets the year for the client
+func WithYear(year int) ClientOption {
+	return func(c *Client) {
+		// overide default year
+		c.Year = func() int {
+			return year
+		}
+	}
+}
+
+// withDay sets the day for the client
+func WithDay(day int) ClientOption {
+	return func(c *Client) {
+		// overide default day
+		c.Day = func() int {
+			return day
+		}
+	}
+}
+
+// withUser sets the user for the client
+func WithUser(user *models.User) ClientOption {
+	return func(c *Client) {
+		// set user
+		c.User = user
+	}
+}
+
+// withTimezone sets the timezone for the client
+func WithTimezone(loc *time.Location) ClientOption {
+	return func(c *Client) {
+		// overide default timezone
+		c.Timezone = loc
+	}
 }
 
 // client makes http request to AOC API
 func (c *Client) makeRequest(req *http.Request) (*http.Response, error) {
-
 	req.Header = c.User.GetHeaders()
-	req.Form = c.User.SetFormValues(req, "2", "5")
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -54,47 +123,63 @@ func (c *Client) makeRequest(req *http.Request) (*http.Response, error) {
 
 // clinet needs to be able to get the data for the day and part
 func (c *Client) GetInputData() (*string, error) {
-	url := fmt.Sprintf(models.DayURL, c.Year, c.Day) + "/input"
+	// set url with clinet year and day
+	url := fmt.Sprintf(models.InputURL, c.Year, c.Day)
+
+	// create request
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("makeRequest: could not create request: %v", err)
+		return nil, err
 	}
 
+	// make request
 	resp, err := c.makeRequest(req)
 	if err != nil {
 		return nil, err
 	}
+
+	// read response body
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("client: could not read response body: %s\n", err)
-		os.Exit(1)
+		return nil, err
 	}
+
+	// return response body as string
 	input := string(respBody)
+
+	// return input data
 	return &input, nil
 }
 
-// client needs to be able to post the answer for the day and part
+// client needs to be able to post the answer for the day and level
 func (c *Client) PostAnswer(level, answer string) (*string, error) {
-	url := fmt.Sprintf(models.DayURL, c.Year-1, 5) + "/answer"
+	// set url with clinet year and day
+	url := fmt.Sprintf(models.AnswerURL, c.Year, c.Day)
 
-	//request body need to contain level and answer
-
+	// create request
 	req, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("makeRequest: could not create request: %v", err)
+		return nil, err
 	}
 
+	// set form values
+	req.Form = c.User.SetFormValues(req, level, answer)
+
+	// make request
 	resp, err := c.makeRequest(req)
 	if err != nil {
 		return nil, err
 	}
 
+	// read response body
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("client: could not read response body: %s\n", err)
-		os.Exit(1)
+		return nil, err
 	}
 
+	// return response body as string
 	returnValue := string(respBody)
+
+	// return input data
 	return &returnValue, nil
 }
