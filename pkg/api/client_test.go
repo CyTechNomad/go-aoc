@@ -162,3 +162,95 @@ func Test_NewClient(t *testing.T) {
 		})
 	}
 }
+
+func Test_AllMutationFn(t *testing.T) {
+	tests := map[string]struct {
+		wantClient *Client
+		configfn   func(*Client)
+	}{
+		"SetYear": {
+			wantClient: &Client{
+				Timezone: timezone,
+				Year:     func() int { return 2020 },
+				Day:      dayfn,
+				User: &models.User{
+					SessionToken: os.Getenv("AOC_SESSION"),
+				},
+				HTTPClient: &http.Client{},
+			},
+			configfn: func(c *Client) {
+				c.SetYear(2020)
+			},
+		},
+		"SetDay": {
+			wantClient: &Client{
+				Timezone: timezone,
+				Year:     yearfn,
+				Day:      func() int { return 1 },
+				User: &models.User{
+					SessionToken: os.Getenv("AOC_SESSION"),
+				},
+				HTTPClient: &http.Client{},
+			},
+			configfn: func(c *Client) {
+				c.SetDay(1)
+			},
+		},
+		"SetUser": {
+			wantClient: &Client{
+				Timezone: timezone,
+				Year:     yearfn,
+				Day:      dayfn,
+				User: &models.User{
+					SessionToken: "testToken",
+				},
+				HTTPClient: &http.Client{},
+			},
+			configfn: func(c *Client) {
+				c.SetUser(&models.User{
+					SessionToken: "testToken",
+				})
+			},
+		},
+		"SetTimezone": {
+			wantClient: &Client{
+				Timezone: time.UTC,
+				Year:     yearfn,
+				Day:      dayfn,
+				User: &models.User{
+					SessionToken: os.Getenv("AOC_SESSION"),
+				},
+				HTTPClient: &http.Client{},
+			},
+			configfn: func(c *Client) {
+				c.SetTimezone(time.UTC)
+			},
+		},
+		"SetDefault": {
+			wantClient: &Client{
+				Timezone: timezone,
+				Year:     yearfn,
+				Day:      dayfn,
+				User: &models.User{
+					SessionToken: os.Getenv("AOC_SESSION"),
+				},
+				HTTPClient: &http.Client{},
+			},
+			configfn: func(c *Client) {
+				c.SetDay(1)
+				c.SetDefault()
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := NewClient()
+
+			test.configfn(client)
+
+			assert.ObjectsAreEqualValues(test.wantClient, client)
+		})
+	}
+
+}

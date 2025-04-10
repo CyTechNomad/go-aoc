@@ -109,6 +109,35 @@ func WithTimezone(loc *time.Location) ClientOption {
 	}
 }
 
+// manually change the Timezone
+func (c *Client) SetTimezone(loc *time.Location) {
+	c.Timezone = loc
+}
+
+// manually change the Year
+func (c *Client) SetYear(year int) {
+	c.Year = func() int {
+		return year
+	}
+}
+
+// manually change the Day
+func (c *Client) SetDay(day int) {
+	c.Day = func() int {
+		return day
+	}
+}
+
+// manually change the user
+func (c *Client) SetUser(user *models.User) {
+	c.User = user
+}
+
+// reset client to default values
+func (c *Client) SetDefault() {
+	defaultOptions(c)
+}
+
 // client makes http request to AOC API
 func (c *Client) makeRequest(req *http.Request) (*http.Response, error) {
 	req.Header = c.User.GetHeaders()

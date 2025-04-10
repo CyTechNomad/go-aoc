@@ -8,30 +8,56 @@ import (
 
 // User is the user data.
 type User struct {
-	sessionToken string
+	SessionToken string
 }
 
+type UserOption func(*User)
+
 // NewUser creates a new user.
-func NewUser() *User {
-	return &User{
-		sessionToken: os.Getenv("AOC_SESSION"),
+func NewUser(opts ...UserOption) *User {
+	// create empty user
+	u := &User{}
+
+	// applies provided options
+	for _, opt := range opts {
+		opt(u)
+	}
+
+	// default options
+	// // may need to be moved to run before opts if more options are added
+	// // so that opts can override defaults if needed
+	if u.SessionToken == "" {
+		defaultOptions(u)
+	}
+
+	return u
+}
+
+// defaultOptions sets the default options.
+// // default sessionToken: is attempted to be set from environment
+func defaultOptions(u *User) {
+	u.SessionToken = os.Getenv("AOC_SESSION")
+	if u.SessionToken == "" {
+		panic("AOC_SESSION environment variable not set and none provided")
+	}
+}
+
+// withSessionToken sets the sessionToken.
+func WithUserSessionToken(sessionToken string) UserOption {
+	return func(u *User) {
+		u.SessionToken = sessionToken
 	}
 }
 
 // GetUserSessionToken returns the user sessionToken.
 func (u *User) GetUserSessionToken() string {
-	return u.sessionToken
-}
-
-// SetUserSessionToken sets the user sessionToken.
-func (u *User) SetUserSessionToken(sessionToken string) {
-	u.sessionToken = sessionToken
+	return u.SessionToken
 }
 
 // GetHeaders returns the headers.
 func (u *User) GetHeaders() http.Header {
 	headers := make(http.Header)
-	headers.Set("Cookie", "session="+u.sessionToken)
+	headers.Set("Cookie", "session="+u.SessionToken)
 	headers.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:107.0) Gecko/20100101 Firefox/107.0")
 
 	return headers
